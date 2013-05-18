@@ -4,7 +4,7 @@
 
 #include "ofMain.h"
 #include "ofxSoundStream.h"
-#include "Sample.h"
+//#include "Sample.h"
 
 class testApp : public ofBaseApp{
 	

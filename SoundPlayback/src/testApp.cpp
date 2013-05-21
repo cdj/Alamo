@@ -4,7 +4,7 @@
 
 //--------------------------------------------------------------
 void testApp::setup(){
-    
+
 	ofBackground(255,255,255);
     ofSetFrameRate(30);
     
@@ -20,7 +20,6 @@ void testApp::setup(){
     
 	sample.load("test2.wav"); // supports mono or stereo .wav files
 	sample.setLooping(true);
-    sample.play();
     
 	sample.generateWaveForm(&waveForm);
     
@@ -33,6 +32,41 @@ void testApp::setup(){
     
 	ofSoundStreamSetup(3,0,this, sampleRate,384, 6);
     
+    
+	bSendSerialMessage = false;
+	accelSerial.listDevices();
+	vector <ofSerialDeviceInfo> deviceList = accelSerial.getDeviceList();
+    
+	// this should be set to whatever com port your serial device is connected to.
+	// (ie, COM4 on a pc, /dev/tty.... on linux, /dev/tty... on a mac)
+	// arduino users check in arduino app....
+	int baud = 9600;
+	//accelSerial.setup(0, baud); //open the first device
+	//serial.setup("COM4", baud); // windows example
+	//serial.setup("/dev/tty.usbserial-A4001JEC", baud); // mac osx example
+	//serial.setup("/dev/ttyUSB0", baud); //linux example
+	
+    for (int i=0; i<deviceList.size(); i++) {
+        if(ofIsStringInString(deviceList[i].getDeviceName(), "some xbee name")) {
+            accelSerial.setup(i, baud);
+            break;
+        }
+    }
+           
+           
+    for (int i=0; i<deviceList.size(); i++) {
+        if(ofIsStringInString(deviceList[i].getDeviceName(), "tty.usbmodem")) { // this should be an arduino...
+            ledSerial.setup(i, baud);
+            break;
+        }
+    }
+    
+    
+	nTimesRead = 0;
+	nBytesRead = 0;
+	readTime = 0;
+	memset(bytesReadString, 0, 4);
+
 }
 
 //--------------------------------------------------------------
@@ -65,6 +99,61 @@ void testApp::update(){
         sample.setSpeed(speed);
     }
     
+	if (bSendSerialMessage){
+		
+		// (1) write the letter "a" to serial:
+		
+		// (2) read
+		// now we try to read 3 bytes
+		// since we might not get them all the time 3 - but sometimes 0, 6, or something else,
+		// we will try to read three bytes, as much as we can
+		// otherwise, we may have a "lag" if we don't read fast enough
+		// or just read three every time. now, we will be sure to
+		// read as much as we can in groups of three...
+		
+        bool isSpinning = false;
+        
+		nTimesRead = 0;
+		nBytesRead = 0;
+		int nRead  = 0;  // a temp variable to keep count per read
+		
+		unsigned char bytesReturned[3];
+		
+		memset(bytesReadString, 0, 4);
+		memset(bytesReturned, 0, 3);
+		
+		while( (nRead = accelSerial.readBytes( bytesReturned, 3)) > 0){
+			nTimesRead++;
+			nBytesRead = nRead;
+		};
+		
+		memcpy(bytesReadString, bytesReturned, 3);
+		
+		bSendSerialMessage = false;
+		readTime = ofGetElapsedTimef();
+        
+        
+        
+        // determine if spinning
+        
+        
+        // play or stop sounds
+        if (isSpinning) {
+            if (!sample.getIsPlaying()) {
+                sample.play();
+            }
+            
+        } else {
+            if (sample.getIsPlaying()) { // needs condition for 8 second buffer
+                sample.stop();
+            }
+        }
+        
+        
+        // send spin status to arduino
+        ledSerial.writeByte(isSpinning ? '0' : '1');
+	}
+
 }
 
 //--------------------------------------------------------------
@@ -93,7 +182,7 @@ void testApp::draw(){
 	ofSetColor(0,0,0);
 	char reportString[255];
 	sprintf(reportString, "volume: (%f) modify with -/+ keys\npan: (%f)\nspeed: (%f)\nplayback: %s\nposition: %f\npaused: %s", volume, pan, speed, bRingModulation ? "ring modulation" : "normal",sample.getPosition(),sample.getIsPaused()?"yes":"no");
-	if (bRingModulation) sprintf(reportString, "%s (%fhz)", reportString, targetFrequency);
+	if (bRingModulation) sprintf(reportString, "%s (%fhz)", reportString, targetFrequency);    
     
 	ofDrawBitmapString(reportString,80,380);
     
@@ -197,6 +286,17 @@ void testApp::mouseReleased(int x, int y, int button){
 void testApp::windowResized(int w, int h){
     
 }
+
+//--------------------------------------------------------------
+void testApp::gotMessage(ofMessage msg){
+	
+}
+
+//--------------------------------------------------------------
+void testApp::dragEvent(ofDragInfo dragInfo){
+	
+}
+
 //--------------------------------------------------------------
 void testApp::audioRequested 	(float * output, int bufferSize, int nChannels){
     

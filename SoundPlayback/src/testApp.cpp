@@ -47,7 +47,7 @@ void testApp::setup(){
 	//serial.setup("/dev/ttyUSB0", baud); //linux example
 	
     for (int i=0; i<deviceList.size(); i++) {
-        if(ofIsStringInString(deviceList[i].getDeviceName(), "some xbee name")) {
+        if(ofIsStringInString(deviceList[i].getDeviceName(), "usbserial")) {
             accelSerial.setup(i, baud);
             break;
         }
